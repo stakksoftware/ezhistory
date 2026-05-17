@@ -63,8 +63,9 @@ ditto -x -k "$ZIP_FILE" "$TMP_DIR"
 rm -rf "${INSTALL_DIR}/${APP_NAME}.app"
 mv "$TMP_DIR/${APP_NAME}.app" "${INSTALL_DIR}/${APP_NAME}.app"
 
-# Clear quarantine so it launches without Gatekeeper prompt
+# Clear quarantine and re-sign so it launches without Gatekeeper prompt
 xattr -dr com.apple.quarantine "${INSTALL_DIR}/${APP_NAME}.app" 2>/dev/null || true
+codesign --force --deep --sign - "${INSTALL_DIR}/${APP_NAME}.app" 2>/dev/null || true
 
 ok "Installed to ${INSTALL_DIR}/${APP_NAME}.app"
 

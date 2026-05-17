@@ -10,7 +10,8 @@ A native macOS menu-bar app that indexes **all your Chrome profiles** and lets y
 
 <p align="center">
   <b>macOS 13+ &nbsp;·&nbsp; Apple Silicon & Intel &nbsp;·&nbsp; No Xcode needed &nbsp;·&nbsp; 3.5 MB</b><br>
-  Download the zip, unzip, drag <code>EzHistory.app</code> to Applications, open it.<br>
+  Download the zip → unzip → drag <code>EzHistory.app</code> to Applications.<br>
+  <b>First launch:</b> Right-click the app → <b>Open</b> → click <b>Open</b> in the dialog.<br>
   Press <code>⌘⇧H</code> to search.
 </p>
 
