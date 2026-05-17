@@ -2,15 +2,25 @@
 
 A native macOS menu-bar app that indexes **all your Chrome profiles** and lets you search history, bookmarks, downloads, logins, and autofill data from a single Spotlight-style window.
 
-## Install
+<p align="center">
+  <a href="https://github.com/stakksoftware/ezhistory/releases/latest/download/EzHistory-v1.0.0-macOS-universal.zip">
+    <img src="https://img.shields.io/badge/Download_EzHistory-v1.0.0-blue?style=for-the-badge&logo=apple&logoColor=white" alt="Download EzHistory" height="48">
+  </a>
+</p>
+
+<p align="center">
+  <b>macOS 13+ &nbsp;·&nbsp; Apple Silicon & Intel &nbsp;·&nbsp; No Xcode needed &nbsp;·&nbsp; 3.5 MB</b><br>
+  Download the zip, unzip, drag <code>EzHistory.app</code> to Applications, open it.<br>
+  Press <code>⌘⇧H</code> to search.
+</p>
+
+---
+
+Or install from your terminal:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/stakksoftware/ezhistory/main/install.sh | bash
 ```
-
-That's it. Downloads the pre-built app, installs to `/Applications`, and launches. Press `⌘⇧H` to start searching.
-
-> **Requires:** macOS 13+ and Google Chrome. No Xcode needed.
 
 ## The Problem
 
