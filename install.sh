@@ -2,7 +2,7 @@
 set -euo pipefail
 
 APP_NAME="EzHistory"
-REPO="https://github.com/stakksoftware/ezhistory.git"
+REPO="stakksoftware/ezhistory"
 INSTALL_DIR="/Applications"
 TMP_DIR=$(mktemp -d)
 
@@ -14,6 +14,7 @@ bold="\033[1m"
 green="\033[32m"
 red="\033[31m"
 cyan="\033[36m"
+dim="\033[2m"
 reset="\033[0m"
 
 info()  { echo -e "${cyan}▸${reset} $1"; }
@@ -30,12 +31,10 @@ echo ""
 # ── Preflight checks ───────────────────────────────────
 [[ "$(uname)" == "Darwin" ]] || fail "EzHistory is macOS only."
 
-if ! command -v swift &>/dev/null; then
-    fail "Swift toolchain not found. Install Xcode or run: xcode-select --install"
-fi
-
-SWIFT_VER=$(swift --version 2>&1 | head -1)
-ok "Swift found: $SWIFT_VER"
+MAC_VER=$(sw_vers -productVersion)
+MAJOR=$(echo "$MAC_VER" | cut -d. -f1)
+[[ "$MAJOR" -ge 13 ]] || fail "Requires macOS 13 or later (you have $MAC_VER)."
+ok "macOS $MAC_VER"
 
 # ── Kill existing instance if running ──────────────────
 if pgrep -x "$APP_NAME" &>/dev/null; then
@@ -44,59 +43,29 @@ if pgrep -x "$APP_NAME" &>/dev/null; then
     sleep 1
 fi
 
-# ── Clone & build ──────────────────────────────────────
-info "Downloading EzHistory..."
-git clone --depth 1 --quiet "$REPO" "$TMP_DIR/ezhistory"
-ok "Downloaded"
+# ── Download latest release ────────────────────────────
+info "Finding latest release..."
+DOWNLOAD_URL=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
+    | grep "browser_download_url.*\.zip" \
+    | head -1 \
+    | cut -d '"' -f 4)
 
-info "Building release (this takes ~30s on first run)..."
-cd "$TMP_DIR/ezhistory"
-swift build -c release --quiet 2>&1
+[[ -n "$DOWNLOAD_URL" ]] || fail "Could not find download URL. Check https://github.com/${REPO}/releases"
 
-ok "Built successfully"
+ZIP_FILE="$TMP_DIR/EzHistory.zip"
+info "Downloading $(basename "$DOWNLOAD_URL")..."
+curl -fsSL -o "$ZIP_FILE" "$DOWNLOAD_URL"
+ok "Downloaded ($(du -h "$ZIP_FILE" | cut -f1 | xargs))"
 
-# ── Create .app bundle ─────────────────────────────────
-info "Creating app bundle..."
-BUILD_DIR=".build/release"
-APP_DIR="${BUILD_DIR}/${APP_NAME}.app"
-
-mkdir -p "${APP_DIR}/Contents/MacOS"
-mkdir -p "${APP_DIR}/Contents/Resources"
-cp "${BUILD_DIR}/${APP_NAME}" "${APP_DIR}/Contents/MacOS/${APP_NAME}"
-
-cat > "${APP_DIR}/Contents/Info.plist" << 'PLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>CFBundleName</key>
-    <string>EzHistory</string>
-    <key>CFBundleDisplayName</key>
-    <string>EzHistory</string>
-    <key>CFBundleIdentifier</key>
-    <string>com.ezhistory.app</string>
-    <key>CFBundleVersion</key>
-    <string>1</string>
-    <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
-    <key>CFBundleExecutable</key>
-    <string>EzHistory</string>
-    <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
-    <key>LSUIElement</key>
-    <true/>
-    <key>CFBundlePackageType</key>
-    <string>APPL</string>
-    <key>NSHighResolutionCapable</key>
-    <true/>
-</dict>
-</plist>
-PLIST
-
-# ── Install ────────────────────────────────────────────
+# ── Unzip & install ────────────────────────────────────
 info "Installing to ${INSTALL_DIR}..."
+ditto -x -k "$ZIP_FILE" "$TMP_DIR"
 rm -rf "${INSTALL_DIR}/${APP_NAME}.app"
-cp -r "${APP_DIR}" "${INSTALL_DIR}/${APP_NAME}.app"
+mv "$TMP_DIR/${APP_NAME}.app" "${INSTALL_DIR}/${APP_NAME}.app"
+
+# Clear quarantine so it launches without Gatekeeper prompt
+xattr -dr com.apple.quarantine "${INSTALL_DIR}/${APP_NAME}.app" 2>/dev/null || true
+
 ok "Installed to ${INSTALL_DIR}/${APP_NAME}.app"
 
 # ── Launch ─────────────────────────────────────────────
@@ -110,7 +79,7 @@ echo "  Usage:"
 echo "    ⌘⇧H          Toggle search window"
 echo "    Menu bar icon  Status & settings"
 echo ""
-echo "  To uninstall:"
-echo "    rm -rf /Applications/EzHistory.app"
-echo "    rm -rf ~/Library/Application\\ Support/ezhistory"
+echo -e "  ${dim}To uninstall:${reset}"
+echo -e "  ${dim}  rm -rf /Applications/EzHistory.app${reset}"
+echo -e "  ${dim}  rm -rf ~/Library/Application\\ Support/ezhistory${reset}"
 echo ""

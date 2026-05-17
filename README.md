@@ -8,9 +8,9 @@ A native macOS menu-bar app that indexes **all your Chrome profiles** and lets y
 curl -fsSL https://raw.githubusercontent.com/stakksoftware/ezhistory/main/install.sh | bash
 ```
 
-That's it. It downloads, builds, installs to `/Applications`, and launches automatically. Press `⌘⇧H` to start searching.
+That's it. Downloads the pre-built app, installs to `/Applications`, and launches. Press `⌘⇧H` to start searching.
 
-> **Requires:** macOS 13+, Google Chrome, and Xcode Command Line Tools (`xcode-select --install` if you don't have them).
+> **Requires:** macOS 13+ and Google Chrome. No Xcode needed.
 
 ## The Problem
 
