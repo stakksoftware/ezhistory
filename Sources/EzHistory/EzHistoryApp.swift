@@ -17,11 +17,6 @@ struct EzHistoryApp: App {
         } label: {
             Image(systemName: "clock.arrow.circlepath")
         }
-
-        Settings {
-            SettingsView()
-                .environmentObject(appState)
-        }
     }
 }
 

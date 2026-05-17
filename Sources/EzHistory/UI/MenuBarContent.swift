@@ -54,7 +54,7 @@ struct MenuBarContent: View {
             .disabled(appState.isIndexing)
 
             Button("Settings...") {
-                NSApp.sendAction(Selector(("showSettingsWindow:")), to: nil, from: nil)
+                SettingsWindowController.shared.show()
             }
             .keyboardShortcut(",")
 

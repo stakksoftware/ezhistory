@@ -317,6 +317,47 @@ final class IndexStore {
         }
     }
 
+    struct BrowserStats {
+        let browser: String
+        let profileCount: Int
+        let itemCount: Int
+    }
+
+    func browserStats() throws -> [BrowserStats] {
+        try dbQueue.read { db in
+            try Row.fetchAll(db, sql: """
+                SELECT p.browser,
+                       COUNT(DISTINCT p.id) AS profileCount,
+                       COUNT(i.id) AS itemCount
+                FROM profiles p
+                LEFT JOIN items i ON i.profileId = p.id
+                GROUP BY p.browser
+                ORDER BY p.browser
+            """).map { row in
+                BrowserStats(
+                    browser: row["browser"],
+                    profileCount: row["profileCount"],
+                    itemCount: row["itemCount"]
+                )
+            }
+        }
+    }
+
+    struct KindStats {
+        let kind: String
+        let count: Int
+    }
+
+    func kindStats() throws -> [KindStats] {
+        try dbQueue.read { db in
+            try Row.fetchAll(db, sql: """
+                SELECT kind, COUNT(*) AS count FROM items GROUP BY kind ORDER BY count DESC
+            """).map { row in
+                KindStats(kind: row["kind"], count: row["count"])
+            }
+        }
+    }
+
     // MARK: - Meta
 
     func getMeta(profileDir: String, sourceFile: String) throws -> IndexMeta? {
