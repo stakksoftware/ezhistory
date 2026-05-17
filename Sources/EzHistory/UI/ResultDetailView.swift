@@ -37,7 +37,7 @@ struct ResultDetailView: View {
                 .buttonStyle(.bordered)
                 .controlSize(.small)
 
-                Text("Found in \(profileCount) profile\(profileCount == 1 ? "" : "s")")
+                Text("Found in \(profileCount) profile\(profileCount == 1 ? "" : "s") across \(browserCount) browser\(browserCount == 1 ? "" : "s")")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -50,17 +50,22 @@ struct ResultDetailView: View {
             ForEach(groupedByProfile, id: \.profileId) { group in
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
+                        let icon = BrowserDef.allBrowsers.first { $0.name == group.browser }?.icon ?? "globe"
+                        Image(systemName: icon)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+
                         Circle()
                             .fill(profileColor(group.color))
                             .frame(width: 10, height: 10)
 
-                        Text(group.displayName)
+                        Text("\(group.browser) / \(group.displayName)")
                             .font(.system(.body, weight: .medium))
 
                         Spacer()
 
                         Button {
-                            ChromeLauncher.openURL(url, inProfile: group.dirName)
+                            ChromeLauncher.openURL(url, inProfile: group.dirName, browser: group.browser)
                         } label: {
                             Label("Open", systemImage: "arrow.up.right.square")
                                 .font(.caption)
@@ -135,12 +140,17 @@ struct ResultDetailView: View {
         Set(results.map(\.profileId)).count
     }
 
+    private var browserCount: Int {
+        Set(results.map(\.browser)).count
+    }
+
     private struct ProfileGroup {
         let profileId: Int64
         let displayName: String
         let accountEmail: String
         let color: Int
         let dirName: String
+        let browser: String
         let items: [SearchResult]
     }
 
@@ -154,10 +164,11 @@ struct ResultDetailView: View {
                 accountEmail: first.accountEmail,
                 color: first.color,
                 dirName: first.dirName,
+                browser: first.browser,
                 items: items
             )
         }
-        .sorted { $0.displayName < $1.displayName }
+        .sorted { "\($0.browser)/\($0.displayName)" < "\($1.browser)/\($1.displayName)" }
     }
 
     private func profileColor(_ colorInt: Int) -> Color {

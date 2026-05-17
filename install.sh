@@ -4,6 +4,7 @@ set -euo pipefail
 APP_NAME="EzHistory"
 REPO="stakksoftware/ezhistory"
 INSTALL_DIR="/Applications"
+CLI_PATH="/usr/local/bin/ezhistory"
 TMP_DIR=$(mktemp -d)
 
 cleanup() { rm -rf "$TMP_DIR"; }
@@ -24,7 +25,7 @@ fail()  { echo -e "${red}✗${reset} $1"; exit 1; }
 echo ""
 echo -e "${bold}  ╔══════════════════════════════════════╗${reset}"
 echo -e "${bold}  ║     ${cyan}EzHistory${reset}${bold} Installer              ║${reset}"
-echo -e "${bold}  ║     Search all Chrome profiles       ║${reset}"
+echo -e "${bold}  ║     Search all browser profiles      ║${reset}"
 echo -e "${bold}  ╚══════════════════════════════════════╝${reset}"
 echo ""
 
@@ -63,11 +64,45 @@ ditto -x -k "$ZIP_FILE" "$TMP_DIR"
 rm -rf "${INSTALL_DIR}/${APP_NAME}.app"
 mv "$TMP_DIR/${APP_NAME}.app" "${INSTALL_DIR}/${APP_NAME}.app"
 
-# Clear quarantine and re-sign so it launches without Gatekeeper prompt
 xattr -dr com.apple.quarantine "${INSTALL_DIR}/${APP_NAME}.app" 2>/dev/null || true
 codesign --force --deep --sign - "${INSTALL_DIR}/${APP_NAME}.app" 2>/dev/null || true
 
 ok "Installed to ${INSTALL_DIR}/${APP_NAME}.app"
+
+# ── Install CLI wrapper ───────────────────────────────
+info "Installing CLI to ${CLI_PATH}..."
+sudo mkdir -p "$(dirname "$CLI_PATH")" 2>/dev/null || true
+
+cat > "$TMP_DIR/ezhistory" << 'CLIEOF'
+#!/bin/bash
+case "${1:-}" in
+  update)
+    echo "Updating EzHistory..."
+    curl -fsSL https://raw.githubusercontent.com/stakksoftware/ezhistory/main/install.sh | bash
+    ;;
+  version|--version|-v)
+    defaults read /Applications/EzHistory.app/Contents/Info.plist CFBundleShortVersionString 2>/dev/null || echo "EzHistory not installed"
+    ;;
+  help|--help|-h)
+    echo "EzHistory - Search across all your browser profiles"
+    echo ""
+    echo "Usage:"
+    echo "  ezhistory          Open EzHistory"
+    echo "  ezhistory update   Update to latest version"
+    echo "  ezhistory version  Show installed version"
+    echo "  ezhistory help     Show this help"
+    ;;
+  *)
+    open -a EzHistory 2>/dev/null || echo "EzHistory not installed. Run: ezhistory update"
+    ;;
+esac
+CLIEOF
+
+if sudo cp "$TMP_DIR/ezhistory" "$CLI_PATH" 2>/dev/null && sudo chmod +x "$CLI_PATH" 2>/dev/null; then
+    ok "CLI installed: ${CLI_PATH}"
+else
+    info "CLI install skipped (no sudo access). You can run: sudo cp $TMP_DIR/ezhistory $CLI_PATH"
+fi
 
 # ── Launch ─────────────────────────────────────────────
 info "Launching EzHistory..."
@@ -77,10 +112,12 @@ echo ""
 echo -e "${green}${bold}  Done!${reset} EzHistory is running in your menu bar."
 echo ""
 echo "  Usage:"
-echo "    ⌘⇧H          Toggle search window"
-echo "    Menu bar icon  Status & settings"
+echo "    ⌘⇧H               Toggle search window"
+echo "    Menu bar icon      Status & settings"
+echo "    ezhistory update   Update to latest version"
 echo ""
 echo -e "  ${dim}To uninstall:${reset}"
 echo -e "  ${dim}  rm -rf /Applications/EzHistory.app${reset}"
 echo -e "  ${dim}  rm -rf ~/Library/Application\\ Support/ezhistory${reset}"
+echo -e "  ${dim}  sudo rm -f /usr/local/bin/ezhistory${reset}"
 echo ""

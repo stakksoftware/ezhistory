@@ -4,6 +4,7 @@ struct FilterBar: View {
     @ObservedObject var viewModel: SearchViewModel
 
     @State private var profiles: [ProfileRecord] = []
+    @State private var browsers: [String] = []
 
     private let kinds: [(String, String, Color)] = [
         ("history", "clock", .blue),
@@ -28,6 +29,43 @@ struct FilterBar: View {
                         } else {
                             viewModel.selectedKinds.insert(kind)
                         }
+                    }
+                }
+
+                if browsers.count > 1 {
+                    Divider()
+                        .frame(height: 20)
+
+                    Menu {
+                        Button("All Browsers") {
+                            viewModel.selectedBrowsers.removeAll()
+                        }
+                        Divider()
+                        ForEach(browsers, id: \.self) { browser in
+                            Button {
+                                if viewModel.selectedBrowsers.contains(browser) {
+                                    viewModel.selectedBrowsers.remove(browser)
+                                } else {
+                                    viewModel.selectedBrowsers.insert(browser)
+                                }
+                            } label: {
+                                HStack {
+                                    if viewModel.selectedBrowsers.contains(browser) {
+                                        Image(systemName: "checkmark")
+                                    }
+                                    let icon = BrowserDef.allBrowsers.first { $0.name == browser }?.icon ?? "globe"
+                                    Image(systemName: icon)
+                                    Text(browser)
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "globe")
+                            Text(browserLabel)
+                                .lineLimit(1)
+                        }
+                        .font(.caption)
                     }
                 }
 
@@ -65,7 +103,7 @@ struct FilterBar: View {
                                     if let id = profile.id, viewModel.selectedProfileIds.contains(id) {
                                         Image(systemName: "checkmark")
                                     }
-                                    Text(profile.displayName)
+                                    Text("\(profile.browser) / \(profile.displayName)")
                                     if !profile.accountEmail.isEmpty {
                                         Text("(\(profile.accountEmail))")
                                             .foregroundColor(.secondary)
@@ -88,6 +126,7 @@ struct FilterBar: View {
         }
         .task {
             profiles = (try? AppState.shared.indexStore.allProfiles()) ?? []
+            browsers = (try? AppState.shared.indexStore.distinctBrowsers()) ?? []
         }
     }
 
@@ -96,6 +135,13 @@ struct FilterBar: View {
             return "All Profiles"
         }
         return "\(viewModel.selectedProfileIds.count) selected"
+    }
+
+    private var browserLabel: String {
+        if viewModel.selectedBrowsers.isEmpty {
+            return "All Browsers"
+        }
+        return "\(viewModel.selectedBrowsers.count) selected"
     }
 }
 

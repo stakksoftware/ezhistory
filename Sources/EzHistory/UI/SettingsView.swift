@@ -5,6 +5,7 @@ import ServiceManagement
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
     @AppStorage("refreshIntervalMinutes") private var refreshInterval = 10
+    @AppStorage("safariEnabled") private var safariEnabled = false
     @State private var launchAtLogin = false
     @State private var profiles: [ProfileRecord] = []
     @State private var excludedProfiles: Set<String> = {
@@ -17,13 +18,16 @@ struct SettingsView: View {
             generalTab
                 .tabItem { Label("General", systemImage: "gear") }
 
+            browsersTab
+                .tabItem { Label("Browsers", systemImage: "globe") }
+
             profilesTab
                 .tabItem { Label("Profiles", systemImage: "person.2") }
 
             aboutTab
                 .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .frame(width: 500, height: 400)
+        .frame(width: 520, height: 450)
         .task {
             profiles = (try? appState.indexStore.allProfiles()) ?? []
             launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -82,6 +86,65 @@ struct SettingsView: View {
         .padding()
     }
 
+    private var browsersTab: some View {
+        Form {
+            Section {
+                Text("EzHistory automatically detects and indexes all installed Chromium-based browsers and Firefox.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Section("Detected Browsers") {
+                let installedBrowsers = detectInstalledBrowsers()
+                ForEach(installedBrowsers, id: \.name) { browser in
+                    HStack {
+                        Image(systemName: browser.icon)
+                            .frame(width: 20)
+                        Text(browser.name)
+                        Spacer()
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                            .font(.caption)
+                    }
+                }
+
+                if installedBrowsers.isEmpty {
+                    Text("No supported browsers found")
+                        .foregroundColor(.secondary)
+                }
+            }
+
+            Section("Safari") {
+                Toggle(isOn: $safariEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enable Safari indexing")
+                        Text("Requires Full Disk Access in System Settings > Privacy & Security")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+                .onChange(of: safariEnabled) { _ in
+                    Task { await appState.reindex() }
+                }
+
+                Button("Open Privacy & Security Settings") {
+                    NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles")!)
+                }
+                .font(.caption)
+            }
+        }
+        .formStyle(.grouped)
+        .padding()
+    }
+
+    private func detectInstalledBrowsers() -> [BrowserDef] {
+        let fm = FileManager.default
+        let appSupport = BrowserScanner.appSupportBase
+        return BrowserDef.chromiumBrowsers.filter { browser in
+            fm.fileExists(atPath: appSupport.appendingPathComponent(browser.basePath).path)
+        } + (fm.fileExists(atPath: appSupport.appendingPathComponent("Firefox/Profiles").path) ? [BrowserDef.firefox] : [])
+    }
+
     private var profilesTab: some View {
         VStack(alignment: .leading) {
             Text("Select which profiles to include in search:")
@@ -92,22 +155,28 @@ struct SettingsView: View {
 
             List {
                 ForEach(Array(profiles.enumerated()), id: \.element.id) { _, profile in
-                    let dirName = profile.dirName
+                    let key = "\(profile.browser):\(profile.dirName)"
                     HStack {
                         Toggle(isOn: Binding(
-                            get: { !excludedProfiles.contains(dirName) },
+                            get: { !excludedProfiles.contains(key) },
                             set: { included in
                                 if included {
-                                    excludedProfiles.remove(dirName)
+                                    excludedProfiles.remove(key)
                                 } else {
-                                    excludedProfiles.insert(dirName)
+                                    excludedProfiles.insert(key)
                                 }
                                 UserDefaults.standard.set(Array(excludedProfiles), forKey: "excludedProfiles")
                             }
                         )) {
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(profile.displayName)
-                                    .font(.body)
+                                HStack(spacing: 4) {
+                                    let icon = BrowserDef.allBrowsers.first { $0.name == profile.browser }?.icon ?? "globe"
+                                    Image(systemName: icon)
+                                        .font(.caption)
+                                        .foregroundColor(.secondary)
+                                    Text("\(profile.browser) / \(profile.displayName)")
+                                        .font(.body)
+                                }
                                 if !profile.accountEmail.isEmpty {
                                     Text(profile.accountEmail)
                                         .font(.caption)
@@ -135,15 +204,27 @@ struct SettingsView: View {
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("Version 1.0.0")
+            Text("Version \(AppVersion.current)")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
 
-            Text("Search across all your Chrome profiles in one place.")
+            Text("Search across all your browser profiles in one place.")
                 .font(.body)
                 .foregroundColor(.secondary)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal, 40)
+
+            if let update = appState.availableUpdate {
+                Button {
+                    appState.performUpdate()
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.down.circle.fill")
+                        Text("Update to v\(update.version)")
+                    }
+                }
+                .disabled(appState.isUpdating)
+            }
 
             Spacer()
         }

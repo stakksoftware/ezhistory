@@ -36,7 +36,12 @@ struct ResultRow: View {
 
             Spacer()
 
-            ProfilePill(name: result.displayName, color: pillColor)
+            ProfilePill(
+                browserName: result.browser,
+                profileName: result.displayName,
+                color: pillColor,
+                browserIcon: browserIcon
+            )
 
             if let count = result.visitCount, count > 1 {
                 Text("\(count)x")
@@ -112,6 +117,10 @@ struct ResultRow: View {
         return Color(red: r, green: g, blue: b)
     }
 
+    private var browserIcon: String {
+        BrowserDef.allBrowsers.first { $0.name == result.browser }?.icon ?? "globe"
+    }
+
     private var relativeDate: String {
         let date = Date(timeIntervalSince1970: TimeInterval(result.timestamp))
         let formatter = RelativeDateTimeFormatter()
@@ -121,18 +130,45 @@ struct ResultRow: View {
 }
 
 struct ProfilePill: View {
-    let name: String
+    let browserName: String
+    let profileName: String
     let color: Color
+    let browserIcon: String
+
+    init(browserName: String = "Chrome", profileName: String, color: Color, browserIcon: String = "globe") {
+        self.browserName = browserName
+        self.profileName = profileName
+        self.color = color
+        self.browserIcon = browserIcon
+    }
+
+    init(name: String, color: Color) {
+        self.browserName = "Chrome"
+        self.profileName = name
+        self.color = color
+        self.browserIcon = "globe"
+    }
 
     var body: some View {
-        Text(name)
-            .font(.caption2)
-            .fontWeight(.medium)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(color.opacity(0.2))
-            .foregroundColor(color)
-            .clipShape(Capsule())
-            .lineLimit(1)
+        HStack(spacing: 3) {
+            Image(systemName: browserIcon)
+                .font(.caption2)
+            Text(displayLabel)
+                .font(.caption2)
+                .fontWeight(.medium)
+        }
+        .padding(.horizontal, 6)
+        .padding(.vertical, 2)
+        .background(color.opacity(0.2))
+        .foregroundColor(color)
+        .clipShape(Capsule())
+        .lineLimit(1)
+    }
+
+    private var displayLabel: String {
+        if browserName == profileName || profileName == "Default" || profileName == "Safari" {
+            return browserName
+        }
+        return "\(browserName) / \(profileName)"
     }
 }

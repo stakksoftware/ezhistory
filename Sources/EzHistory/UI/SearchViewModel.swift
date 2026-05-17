@@ -10,6 +10,7 @@ final class SearchViewModel: ObservableObject {
     @Published var selectedId: Int64?
     @Published var selectedKinds: Set<String> = []
     @Published var selectedProfileIds: Set<Int64> = []
+    @Published var selectedBrowsers: Set<String> = []
     @Published var timeFilter: TimeFilter = .all
 
     private var searchTask: Task<Void, Never>?
@@ -58,6 +59,7 @@ final class SearchViewModel: ObservableObject {
         Publishers.MergeMany(
             $selectedKinds.map { _ in () }.eraseToAnyPublisher(),
             $selectedProfileIds.map { _ in () }.eraseToAnyPublisher(),
+            $selectedBrowsers.map { _ in () }.eraseToAnyPublisher(),
             $timeFilter.map { _ in () }.eraseToAnyPublisher()
         )
         .debounce(for: .milliseconds(100), scheduler: DispatchQueue.main)
@@ -86,6 +88,7 @@ final class SearchViewModel: ObservableObject {
                     query: query,
                     kinds: selectedKinds.isEmpty ? nil : selectedKinds,
                     profileIds: selectedProfileIds.isEmpty ? nil : selectedProfileIds,
+                    browsers: selectedBrowsers.isEmpty ? nil : selectedBrowsers,
                     since: timeFilter.date
                 )
 
@@ -120,7 +123,7 @@ final class SearchViewModel: ObservableObject {
 
     func openSelected() {
         guard let result = selectedResult else { return }
-        ChromeLauncher.openURL(result.url, inProfile: result.dirName)
+        ChromeLauncher.openURL(result.url, inProfile: result.dirName, browser: result.browser)
     }
 
     func moveSelection(down: Bool) {

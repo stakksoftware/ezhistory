@@ -10,6 +10,7 @@ struct ProfileRecord: Codable, FetchableRecord, PersistableRecord, Identifiable 
     var accountEmail: String
     var avatarIcon: String
     var color: Int
+    var browser: String
 
     mutating func didInsert(_ inserted: InsertionSuccess) {
         id = inserted.rowID
@@ -48,6 +49,7 @@ struct SearchResult: FetchableRecord, Decodable, Identifiable {
     var accountEmail: String
     var color: Int
     var dirName: String
+    var browser: String
 }
 
 struct IndexMeta: Codable, FetchableRecord, PersistableRecord {
@@ -153,14 +155,28 @@ final class IndexStore {
             }
         }
 
+        migrator.registerMigration("v2_multi_browser") { db in
+            try db.alter(table: "profiles") { t in
+                t.add(column: "browser", .text).notNull().defaults(to: "Chrome")
+            }
+
+            try db.execute(sql: "DROP INDEX IF EXISTS profiles_dirName_unique")
+            try db.execute(sql: """
+                CREATE UNIQUE INDEX IF NOT EXISTS profiles_browser_dir
+                ON profiles(browser, dirName)
+            """)
+        }
+
         try migrator.migrate(dbQueue)
     }
 
     // MARK: - Profile operations
 
-    func upsertProfile(_ profile: ChromeProfile) throws -> Int64 {
+    func upsertProfile(_ profile: BrowserProfile) throws -> Int64 {
         try dbQueue.write { db in
-            if let existing = try ProfileRecord.filter(Column("dirName") == profile.dirName).fetchOne(db) {
+            if let existing = try ProfileRecord.filter(
+                Column("browser") == profile.browser && Column("dirName") == profile.dirName
+            ).fetchOne(db) {
                 var updated = existing
                 updated.displayName = profile.displayName
                 updated.accountEmail = profile.accountEmail
@@ -174,7 +190,8 @@ final class IndexStore {
                     displayName: profile.displayName,
                     accountEmail: profile.accountEmail,
                     avatarIcon: profile.avatarIcon,
-                    color: profile.themeColor
+                    color: profile.themeColor,
+                    browser: profile.browser
                 )
                 return try record.inserted(db).id!
             }
@@ -226,14 +243,15 @@ final class IndexStore {
     // MARK: - Search
 
     func search(query: String, kinds: Set<String>? = nil, profileIds: Set<Int64>? = nil,
-                since: Date? = nil, limit: Int = 200) throws -> [SearchResult] {
+                browsers: Set<String>? = nil, since: Date? = nil, limit: Int = 200) throws -> [SearchResult] {
         try dbQueue.read { db in
             let ftsQuery = query.split(separator: " ").map { "\($0)*" }.joined(separator: " ")
 
             var sql = """
                 SELECT items.id, items.profileId, items.kind, items.url, items.title,
                        items.username, items.timestamp, items.visitCount, items.extraJson,
-                       profiles.displayName, profiles.accountEmail, profiles.color, profiles.dirName
+                       profiles.displayName, profiles.accountEmail, profiles.color,
+                       profiles.dirName, profiles.browser
                 FROM items_fts
                 JOIN items ON items.id = items_fts.rowid
                 JOIN profiles ON profiles.id = items.profileId
@@ -253,8 +271,14 @@ final class IndexStore {
                 arguments.append(contentsOf: profileIds.map { $0 as DatabaseValueConvertible })
             }
 
+            if let browsers = browsers, !browsers.isEmpty {
+                let placeholders = browsers.map { _ in "?" }.joined(separator: ",")
+                sql += " AND profiles.browser IN (\(placeholders))"
+                arguments.append(contentsOf: browsers.map { $0 as DatabaseValueConvertible })
+            }
+
             if let since = since {
-                let ts = Int64(since.timeIntervalSince1970 * 1000)
+                let ts = Int64(since.timeIntervalSince1970)
                 sql += " AND items.timestamp >= ?"
                 arguments.append(ts)
             }
@@ -271,7 +295,8 @@ final class IndexStore {
             try SearchResult.fetchAll(db, sql: """
                 SELECT items.id, items.profileId, items.kind, items.url, items.title,
                        items.username, items.timestamp, items.visitCount, items.extraJson,
-                       profiles.displayName, profiles.accountEmail, profiles.color, profiles.dirName
+                       profiles.displayName, profiles.accountEmail, profiles.color,
+                       profiles.dirName, profiles.browser
                 FROM items
                 JOIN profiles ON profiles.id = items.profileId
                 WHERE items.url = ?
@@ -282,7 +307,13 @@ final class IndexStore {
 
     func allProfiles() throws -> [ProfileRecord] {
         try dbQueue.read { db in
-            try ProfileRecord.order(Column("displayName")).fetchAll(db)
+            try ProfileRecord.order(Column("browser")).order(Column("displayName")).fetchAll(db)
+        }
+    }
+
+    func distinctBrowsers() throws -> [String] {
+        try dbQueue.read { db in
+            try String.fetchAll(db, sql: "SELECT DISTINCT browser FROM profiles ORDER BY browser")
         }
     }
 

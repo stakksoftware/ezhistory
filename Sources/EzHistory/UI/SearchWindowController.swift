@@ -1,6 +1,7 @@
 import AppKit
 import SwiftUI
 
+@MainActor
 final class SearchWindowController {
     static let shared = SearchWindowController()
 
@@ -61,7 +62,9 @@ final class SearchWindowController {
         window.animationBehavior = .utilityWindow
         window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
 
-        let hostingView = NSHostingView(rootView: AnyView(contentView))
+        let hostingView = NSHostingView(rootView: AnyView(
+            contentView.environmentObject(AppState.shared)
+        ))
         window.contentView = hostingView
 
         self.window = window

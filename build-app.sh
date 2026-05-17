@@ -30,7 +30,7 @@ cat > "${APP_DIR}/Contents/Info.plist" << 'PLIST'
     <key>CFBundleVersion</key>
     <string>1</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>1.1.0</string>
     <key>CFBundleExecutable</key>
     <string>EzHistory</string>
     <key>LSMinimumSystemVersion</key>

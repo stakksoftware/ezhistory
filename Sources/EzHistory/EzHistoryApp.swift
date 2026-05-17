@@ -46,6 +46,8 @@ final class AppState: ObservableObject {
     @Published var profileCount = 0
     @Published var itemCount = 0
     @Published var lastIndexDate: Date?
+    @Published var availableUpdate: UpdateInfo?
+    @Published var isUpdating = false
 
     let indexStore: IndexStore
     let coordinator: IndexCoordinator
@@ -71,6 +73,10 @@ final class AppState: ObservableObject {
         isIndexing = false
 
         coordinator.startScheduledIndexing()
+
+        Task {
+            await checkForUpdates()
+        }
     }
 
     func reindex() async {
@@ -80,5 +86,26 @@ final class AppState: ObservableObject {
         itemCount = (try? indexStore.itemCount()) ?? 0
         lastIndexDate = Date()
         isIndexing = false
+    }
+
+    func checkForUpdates() async {
+        if let update = await UpdateChecker.checkForUpdate() {
+            availableUpdate = update
+        }
+    }
+
+    func performUpdate() {
+        guard let update = availableUpdate else { return }
+        isUpdating = true
+        Task {
+            let success = await UpdateChecker.performUpdate(from: update.downloadURL)
+            if !success {
+                isUpdating = false
+            }
+        }
+    }
+
+    func dismissUpdate() {
+        availableUpdate = nil
     }
 }

@@ -11,7 +11,7 @@ final class IndexCoordinator: @unchecked Sendable {
     }
 
     func runFullIndex(progress: ((Double) -> Void)?) async {
-        let scanner = ChromeProfileScanner()
+        let scanner = BrowserScanner()
         let profiles = scanner.scan()
 
         let total = Double(profiles.count)
@@ -21,21 +21,35 @@ final class IndexCoordinator: @unchecked Sendable {
             do {
                 let profileId = try store.upsertProfile(profile)
 
-                let historyImporter = HistoryImporter(store: store)
-                try historyImporter.importHistory(profile: profile, profileId: profileId)
-                try historyImporter.importDownloads(profile: profile, profileId: profileId)
+                if profile.browserDef.isChromium {
+                    let historyImporter = HistoryImporter(store: store)
+                    try historyImporter.importHistory(profile: profile, profileId: profileId)
+                    try historyImporter.importDownloads(profile: profile, profileId: profileId)
 
-                let bookmarksImporter = BookmarksImporter(store: store)
-                try bookmarksImporter.importBookmarks(profile: profile, profileId: profileId)
+                    let bookmarksImporter = BookmarksImporter(store: store)
+                    try bookmarksImporter.importBookmarks(profile: profile, profileId: profileId)
 
-                let loginsImporter = LoginsImporter(store: store)
-                try loginsImporter.importLogins(profile: profile, profileId: profileId)
+                    let loginsImporter = LoginsImporter(store: store)
+                    try loginsImporter.importLogins(profile: profile, profileId: profileId)
 
-                let autofillImporter = AutofillImporter(store: store)
-                try autofillImporter.importAutofill(profile: profile, profileId: profileId)
+                    let autofillImporter = AutofillImporter(store: store)
+                    try autofillImporter.importAutofill(profile: profile, profileId: profileId)
+
+                } else if profile.browser == "Firefox" {
+                    let firefoxImporter = FirefoxImporter(store: store)
+                    try firefoxImporter.importHistory(profile: profile, profileId: profileId)
+                    try firefoxImporter.importBookmarks(profile: profile, profileId: profileId)
+                    try firefoxImporter.importLogins(profile: profile, profileId: profileId)
+                    try firefoxImporter.importAutofill(profile: profile, profileId: profileId)
+
+                } else if profile.browser == "Safari" {
+                    let safariImporter = SafariImporter(store: store)
+                    try safariImporter.importHistory(profile: profile, profileId: profileId)
+                    try safariImporter.importBookmarks(profile: profile, profileId: profileId)
+                }
 
             } catch {
-                print("Error indexing profile \(profile.dirName): \(error)")
+                print("Error indexing \(profile.browser)/\(profile.dirName): \(error)")
             }
 
             progress?((Double(index + 1)) / total)
@@ -63,8 +77,29 @@ final class IndexCoordinator: @unchecked Sendable {
     }
 
     private func setupFSEvents() {
-        let chromePath = ChromeProfileScanner.chromeBasePath.path as CFString
-        let pathsToWatch = [chromePath] as CFArray
+        var watchPaths: [String] = []
+
+        let appSupport = BrowserScanner.appSupportBase.path
+        for browser in BrowserDef.chromiumBrowsers {
+            let path = (appSupport as NSString).appendingPathComponent(browser.basePath)
+            if FileManager.default.fileExists(atPath: path) {
+                watchPaths.append(path)
+            }
+        }
+
+        let firefoxProfiles = (appSupport as NSString).appendingPathComponent("Firefox/Profiles")
+        if FileManager.default.fileExists(atPath: firefoxProfiles) {
+            watchPaths.append(firefoxProfiles)
+        }
+
+        let safariPath = BrowserScanner.safariBase.path
+        if FileManager.default.fileExists(atPath: safariPath) {
+            watchPaths.append(safariPath)
+        }
+
+        guard !watchPaths.isEmpty else { return }
+
+        let pathsToWatch = watchPaths.map { $0 as CFString } as CFArray
 
         let unmanaged = Unmanaged.passRetained(self)
         var context = FSEventStreamContext(

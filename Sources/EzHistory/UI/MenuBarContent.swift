@@ -33,6 +33,19 @@ struct MenuBarContent: View {
                 }
             }
 
+            if let update = appState.availableUpdate {
+                Divider()
+                Button {
+                    appState.performUpdate()
+                } label: {
+                    HStack {
+                        Image(systemName: "arrow.down.circle.fill")
+                        Text("Update to v\(update.version)")
+                    }
+                }
+                .disabled(appState.isUpdating)
+            }
+
             Divider()
 
             Button("Reindex Now") {
@@ -46,6 +59,10 @@ struct MenuBarContent: View {
             .keyboardShortcut(",")
 
             Divider()
+
+            Text("v\(AppVersion.current)")
+                .font(.caption2)
+                .foregroundColor(.secondary)
 
             Button("Quit EzHistory") {
                 NSApp.terminate(nil)

@@ -4,9 +4,14 @@ struct SearchWindow: View {
     let onDismiss: () -> Void
 
     @StateObject private var viewModel = SearchViewModel()
+    @EnvironmentObject var appState: AppState
 
     var body: some View {
         VStack(spacing: 0) {
+            if let update = appState.availableUpdate {
+                updateBanner(update)
+            }
+
             searchBar
             Divider()
 
@@ -32,6 +37,50 @@ struct SearchWindow: View {
         .frame(minWidth: 700, minHeight: 400)
         .background(VisualEffectView(material: .hudWindow, blendingMode: .behindWindow))
         .onExitCommand { onDismiss() }
+    }
+
+    private func updateBanner(_ update: UpdateInfo) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: "arrow.down.circle.fill")
+                .foregroundColor(.white)
+            Text("EzHistory v\(update.version) available")
+                .font(.caption)
+                .fontWeight(.medium)
+                .foregroundColor(.white)
+            Spacer()
+            Button {
+                appState.performUpdate()
+            } label: {
+                if appState.isUpdating {
+                    ProgressView()
+                        .controlSize(.small)
+                        .tint(.white)
+                } else {
+                    Text("Update Now")
+                        .font(.caption)
+                        .fontWeight(.semibold)
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 4)
+            .background(Color.white.opacity(0.2))
+            .clipShape(Capsule())
+            .foregroundColor(.white)
+            .disabled(appState.isUpdating)
+
+            Button {
+                appState.dismissUpdate()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption2)
+                    .foregroundColor(.white.opacity(0.7))
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(Color.accentColor)
     }
 
     private var searchBar: some View {
@@ -71,8 +120,8 @@ struct SearchWindow: View {
                             .tag(result.id)
                             .id(result.id)
                             .contextMenu {
-                                Button("Open in \(result.displayName)") {
-                                    ChromeLauncher.openURL(result.url, inProfile: result.dirName)
+                                Button("Open in \(result.browser) / \(result.displayName)") {
+                                    ChromeLauncher.openURL(result.url, inProfile: result.dirName, browser: result.browser)
                                 }
                                 Button("Copy URL") {
                                     ChromeLauncher.copyURL(result.url)
@@ -87,7 +136,7 @@ struct SearchWindow: View {
                                     }
                                 }
                                 Divider()
-                                Text("Profile: \(result.displayName)")
+                                Text("\(result.browser) / \(result.displayName)")
                                 if !result.accountEmail.isEmpty {
                                     Text(result.accountEmail)
                                 }
@@ -130,7 +179,7 @@ struct SearchWindow: View {
             Text("EzHistory")
                 .font(.title2)
                 .fontWeight(.semibold)
-            Text("Search across all your Chrome profiles")
+            Text("Search across all your browser profiles")
                 .font(.subheadline)
                 .foregroundColor(.secondary)
             Text("⌘⇧H to toggle this window")
