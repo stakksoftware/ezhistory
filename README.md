@@ -2,6 +2,16 @@
 
 A native macOS menu-bar app that indexes **all your Chrome profiles** and lets you search history, bookmarks, downloads, logins, and autofill data from a single Spotlight-style window.
 
+## Install
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/stakksoftware/ezhistory/main/install.sh | bash
+```
+
+That's it. It downloads, builds, installs to `/Applications`, and launches automatically. Press `⌘⇧H` to start searching.
+
+> **Requires:** macOS 13+, Google Chrome, and Xcode Command Line Tools (`xcode-select --install` if you don't have them).
+
 ## The Problem
 
 When you have dozens of Chrome profiles, finding which profile you visited a site in, signed up for a service with, or downloaded a file from becomes impossible. EzHistory solves this by indexing every profile and showing you exactly which profiles touched any URL.
@@ -21,26 +31,23 @@ When you have dozens of Chrome profiles, finding which profile you visited a sit
 - **Launch at login** — optional via Settings
 - **Favicon caching** — fetches and caches site icons
 
-## Requirements
+## Build from Source
 
-- macOS 13 (Ventura) or later
-- Google Chrome installed
-- Swift 5.9+ / Xcode 15+
-
-## Build & Run
+If you prefer to build manually instead of using the one-liner:
 
 ```bash
+git clone https://github.com/stakksoftware/ezhistory.git
 cd ezhistory
-
-# Debug build + run
-swift build && .build/debug/EzHistory
-
-# Release build + app bundle
 ./build-app.sh
-open .build/release/EzHistory.app
-
-# Install to Applications
 cp -r .build/release/EzHistory.app /Applications/
+open /Applications/EzHistory.app
+```
+
+## Uninstall
+
+```bash
+rm -rf /Applications/EzHistory.app
+rm -rf ~/Library/Application\ Support/ezhistory
 ```
 
 ## How It Works
